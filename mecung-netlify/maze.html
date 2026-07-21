@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mê Cung</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:100vw;height:100vh;overflow:hidden;background:#111;user-select:none;-webkit-user-select:none}
+#bg{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;opacity:0;transition:opacity 0.5s ease}
+#bg.loaded{opacity:1}
+svg#lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 0.4s ease 0.2s}
+svg#lines.loaded{opacity:1}
+.hs{position:absolute;cursor:pointer;z-index:5;opacity:0;transition:opacity 0.4s ease 0.2s}
+.hs.loaded{opacity:1}
+.hs:hover{background:rgba(255,255,255,0.06)}
+#err{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#444;font-family:sans-serif}
+#loader{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:50;pointer-events:none}
+#loader svg{animation:spin 1s linear infinite;opacity:0.4}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader.hidden{opacity:0;transition:opacity 0.4s ease}
+</style></head><body>
+<div id="bg"></div>
+<svg id="lines"></svg>
+<div id="loader"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
+<script>var _PROD=true;</script>
+<script>
+(function(){
+  function dec(s){try{return decodeURIComponent(escape(atob(s)))}catch(e){return''}}
+  var parts=location.pathname.split('/p/');var token=typeof PREVIEW_TOKEN!=='undefined'?PREVIEW_TOKEN:(parts.length>1?parts[1].split('/')[0].split('?')[0]:'');
+  if(typeof MC!=='undefined'){run(MC);return;}
+  (async function(){
+    try{
+      var res=await fetch('/.netlify/functions/page?t='+encodeURIComponent(token));
+      if(!res.ok){run([]);return;}
+      var page=await res.json();
+      run([page]);
+    }catch(e){console.error('Fetch failed',e);run([]);}
+  })();
+  return;
+  function run(cfg){
+  var page=null;
+  for(var i=0;i<cfg.length;i++){if(cfg[i].token===token){page=cfg[i];break;}}
+  if(!page){var e=document.createElement('div');e.id='err';e.textContent='Trang không tồn tại.';document.body.appendChild(e);return;}
+  var imgSrc=page.imgData||(typeof _PROD!=='undefined'?'/img/'+token+'.'+(page.imgExt||'jpeg'):'');
+  var bgEl=document.getElementById('bg');
+  var loaderEl=document.getElementById('loader');
+  var svgEl=document.getElementById('lines');
+  function revealPage(){
+    bgEl.classList.add('loaded');
+    svgEl.classList.add('loaded');
+    document.querySelectorAll('.hs').forEach(function(h){h.classList.add('loaded');});
+    if(loaderEl){loaderEl.classList.add('hidden');setTimeout(function(){loaderEl.style.display='none';},400);}
+  }
+  if(imgSrc){
+    bgEl.style.backgroundImage='url('+imgSrc+')';
+    var img=new Image();
+    img.onload=revealPage;
+    img.onerror=revealPage;
+    img.src=imgSrc;
+  } else {
+    revealPage();
+  };
+  var svg=document.getElementById('lines');
+  var W=window.innerWidth,H=window.innerHeight;
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+
+  page.hotspots.forEach(function(hs,hsIndex){
+    var hcx=(hs.x+hs.w/2)/100*W;
+    var hcy=(hs.y+hs.h/2)/100*H;
+    var lx=hs.lx/100*W;
+    var ly=hs.ly/100*H;
+    var ex=lx,ey=hcy;
+
+    // L-shape line
+    var pl=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    pl.setAttribute('points',hcx+','+hcy+' '+ex+','+ey+' '+lx+','+ly);
+    pl.setAttribute('stroke','rgba(255,255,255,0.5)');
+    pl.setAttribute('stroke-width','1.2');
+    pl.setAttribute('fill','none');
+    pl.setAttribute('stroke-dasharray','4,3');
+    svg.appendChild(pl);
+
+    // dot
+    var c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',hcx);c.setAttribute('cy',hcy);c.setAttribute('r','3');
+    c.setAttribute('fill','rgba(255,255,255,0.45)');
+    svg.appendChild(c);
+
+    // label
+    var lw=Math.max(60,(hs.label||'').length*9+24);
+    var fo=document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
+    fo.setAttribute('x',lx-lw/2);fo.setAttribute('y',ly-14);
+    fo.setAttribute('width',lw);fo.setAttribute('height',30);
+    fo.innerHTML='<div xmlns="http://www.w3.org/1999/xhtml" style="background:rgba(0,0,0,0.78);border:1px solid rgba(255,255,255,0.2);border-radius:5px;padding:4px 10px;font-size:12px;color:#fff;white-space:nowrap;text-align:center;font-family:sans-serif">'+(hs.label||'')+'</div>';
+    svg.appendChild(fo);
+
+    // hotspot clickable
+    var el=document.createElement('div');
+    el.className='hs';
+    el.style.left=hs.x+'%';el.style.top=hs.y+'%';
+    el.style.width=hs.w+'%';el.style.height=hs.h+'%';
+    (function(idx){
+      el.addEventListener('click',function(){
+        if(typeof _PROD==='undefined'){
+          // Preview mode - use enc directly
+          var u=dec(hs.enc||'');if(u)window.location.href=u;
+        } else {
+          // Production - fetch URL from server
+          fetch('/.netlify/functions/page?t='+encodeURIComponent(token)+'&h='+idx)
+            .then(function(r){return r.json();})
+            .then(function(d){if(d.url)window.location.href=d.url;})
+            .catch(function(){});
+        }
+      });
+    })(hsIndex);
+    el.addEventListener('contextmenu',function(e){e.preventDefault();});
+    document.body.appendChild(el);
+  });
+
+  document.addEventListener('contextmenu',function(e){e.preventDefault();});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C'].includes(e.key)))e.preventDefault();
+  });
+  window.addEventListener('resize',function(){location.reload();});
+  } // end run()
+})();
+</script>
+</body></html>
